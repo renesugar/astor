@@ -8,6 +8,7 @@ Copyright (c) 2015 Patrick Maupin
 """
 
 import ast
+import math
 import sys
 import textwrap
 
@@ -22,6 +23,11 @@ import astor
 def canonical(srctxt):
     return textwrap.dedent(srctxt).strip()
 
+def astorexpr(x):
+    return eval(astor.to_source(ast.Expression(body=x)))
+
+def astornum(x):
+    return astorexpr(ast.Num(n=x))
 
 class Comparisons(object):
 
@@ -89,6 +95,14 @@ class CodegenTestCase(unittest.TestCase, Comparisons):
         self.assertSrcRoundtrips(source)
         source = "from ..aaa import foo, bar as bar2"
         self.assertSrcRoundtrips(source)
+
+    def test_empty_iterable_literals(self):
+        self.assertSrcRoundtrips('()')
+        self.assertSrcRoundtrips('[]')
+        self.assertSrcRoundtrips('{}')
+        # Python has no literal for empty sets, but code_gen should produce an
+        # expression that evaluates to one.
+        self.assertEqual(astorexpr(ast.Set([])), set())
 
     def test_dictionary_literals(self):
         source = "{'a': 1, 'b': 2}"
@@ -245,6 +259,14 @@ class CodegenTestCase(unittest.TestCase, Comparisons):
         """
         self.assertAstRoundtripsGtVer(source, (2, 7))
 
+    def test_complex(self):
+        source = """
+            (3) + (4j) + (1+2j) + (1+0j)
+        """
+        self.assertAstRoundtrips(source)
+
+        self.assertIsInstance(astornum(1+0j), complex)
+
     def test_inf(self):
         source = """
             (1e1000) + (-1e1000) + (1e1000j) + (-1e1000j)
@@ -258,6 +280,19 @@ class CodegenTestCase(unittest.TestCase, Comparisons):
         self.assertAstRoundtrips(source)
         # Returns 'a = 1e1000'.
         self.assertSrcDoesNotRoundtrip(source)
+
+        self.assertIsInstance(astornum((1e1000+1e1000)+0j), complex)
+
+    def test_nan(self):
+        self.assertTrue(math.isnan(astornum(float('nan'))))
+
+        v = astornum(complex(-1e1000, float('nan')))
+        self.assertEqual(v.real, -1e1000)
+        self.assertTrue(math.isnan(v.imag))
+
+        v = astornum(complex(float('nan'), -1e1000))
+        self.assertTrue(math.isnan(v.real))
+        self.assertEqual(v.imag, -1e1000)
 
     def test_unary(self):
         source = """
@@ -475,6 +510,58 @@ class CodegenTestCase(unittest.TestCase, Comparisons):
         tar_compression = {'gzip': 'gz', None: ''}
         '''
         self.assertAstRoundtrips(source)
+
+    def test_fstring_trailing_newline(self):
+        source = '''
+        x = f"""{host}\n\t{port}\n"""
+        '''
+        self.assertSrcRoundtripsGtVer(source, (3, 6))
+
+    def test_docstring_function(self):
+        source = '''
+        def f(arg):
+            """
+            docstring
+            """
+            return 3
+        '''
+        self.assertSrcRoundtrips(source)
+
+    def test_docstring_class(self):
+        source = '''
+        class Class:
+            """
+            docstring
+            """
+            pass
+        '''
+        self.assertSrcRoundtrips(source)
+
+    def test_docstring_method(self):
+        source = '''
+        class Class:
+
+            def f(arg):
+                """
+                docstring
+                """
+                return 3
+        '''
+        self.assertSrcRoundtrips(source)
+
+    def test_docstring_module(self):
+        source = '''
+        """
+        docstring1
+        """
+
+
+        class Class:
+
+            def f(arg):
+                pass
+        '''
+        self.assertSrcRoundtrips(source)
 
 
 if __name__ == '__main__':
