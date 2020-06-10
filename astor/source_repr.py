@@ -35,9 +35,9 @@ def split_lines(source, maxline=79):
     line = []
     multiline = False
     count = 0
-    find = str.find
     for item in source:
-        index = find(item, '\n')
+        newline = type(item)('\n')
+        index = item.find(newline)
         if index:
             line.append(item)
             multiline = index > 0
@@ -71,7 +71,7 @@ def wrap_line(line, maxline=79, result=[], count=count):
 
     indentation = line[0]
     lenfirst = len(indentation)
-    indent = lenfirst - len(indentation.strip())
+    indent = lenfirst - len(indentation.lstrip())
     assert indent in (0, lenfirst)
     indentation = line.pop(0) if indent else ''
 
@@ -101,8 +101,8 @@ def wrap_line(line, maxline=79, result=[], count=count):
     pos = indent + count(first)
     indentation += '    '
     indent += 4
-    if indent >= maxline/2:
-        maxline = maxline/2 + indent
+    if indent >= maxline / 2:
+        maxline = maxline / 2 + indent
 
     for sg, nsg in zip(splittable, unsplittable[1:]):
 

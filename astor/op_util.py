@@ -34,8 +34,10 @@ op_data = """
         ExtSlice                1
     comprehension_target        1
            Tuple                0
+  FormattedValue                0
 
            Comma                1
+       NamedExpr                1
           Assert                0
            Raise                0
     call_one_arg                1
@@ -78,6 +80,7 @@ op_data = """
              Pow   **           1
            Await                1
              Num                1
+        Constant                1
 """
 
 op_data = [x.split() for x in op_data.splitlines()]
